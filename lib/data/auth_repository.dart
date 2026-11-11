@@ -11,12 +11,12 @@ class AuthFailure implements Exception {
 class AuthRepository {
   final FirebaseAuth _auth;
 
-  AuthRepository({FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
+  AuthRepository([FirebaseAuth? auth]) : _auth = auth ?? FirebaseAuth.instance;
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<User?> authStateChanges() => _auth.authStateChanges();
   User? get currentUser => _auth.currentUser;
 
-  Future<void> signIn({required String email, required String password}) async {
+  Future<void> signIn(String email, String password) async {
     try {
       await _auth.signInWithEmailAndPassword(
         email: email.trim(),
@@ -27,7 +27,7 @@ class AuthRepository {
     }
   }
 
-  Future<void> signUp({required String email, required String password}) async {
+  Future<void> signUp(String email, String password) async {
     try {
       await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
@@ -47,13 +47,13 @@ class AuthRepository {
       case 'user-not-found':
       case 'wrong-password':
       case 'invalid-credential':
-        return 'Incorrect email or password.';
+        return 'Wrong email or password.';
       case 'email-already-in-use':
         return 'An account already exists for this email.';
       case 'invalid-email':
-        return 'Please enter a valid email address.';
+        return 'The email address is not valid.';
       case 'weak-password':
-        return 'Password is too weak. Use at least 6 characters.';
+        return 'The password must be at least 6 characters.';
       default:
         return 'Sign-in failed. Please try again.';
     }

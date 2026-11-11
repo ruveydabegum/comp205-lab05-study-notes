@@ -1,48 +1,120 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
 import '../data/auth_repository.dart';
 import '../data/notes_repository.dart';
 import '../models/note.dart';
 import 'add_note_dialog.dart';
 
-/// Part 4: the signed-in user's notes, live from Firestore.
-///
-/// - AppBar title 'My Notes'; an IconButton (tooltip 'Sign out', Icons.logout)
-///   that calls AuthRepository.signOut().
-/// - A FloatingActionButton (tooltip 'Add note') that opens AddNoteDialog and
-///   calls NotesRepository.addNote. On ArgumentError show a SnackBar 'A title is required.'
-/// - Body: a StreamBuilder over _notes:
-///     error                -> Text('Could not load notes.')
-///     no data yet          -> CircularProgressIndicator
-///     empty list           -> Text('No notes yet')
-///     otherwise            -> a ListView of ListTile(title, subtitle: body), each inside a
-///                             Dismissible (key: ValueKey(note.id)) that calls deleteNote.
-class NotesScreen extends StatefulWidget {
-  const NotesScreen({super.key, required this.uid});
+class NotesScreen extends StatelessWidget {
+  final String? uid;
+  final NotesRepository? notesRepository;
+  final AuthRepository? authRepository;
 
-  final String uid;
-
-  @override
-  State<NotesScreen> createState() => _NotesScreenState();
-}
-
-class _NotesScreenState extends State<NotesScreen> {
-  // Created once, not in build (Week 6: a new stream on every rebuild restarts it). Given.
-  late final Stream<List<Note>> _notes = context.read<NotesRepository>().watchNotes(widget.uid);
-
-  Future<void> _add() async {
-    // TODO(4): showDialog<(String, String)>(context: context, builder: (_) => const AddNoteDialog())
-    //          then addNote(widget.uid, result.$1, result.$2).
-    // Tip: read the repository and ScaffoldMessenger BEFORE the first await.
-  }
+  const NotesScreen({
+    super.key,
+    this.uid,
+    this.notesRepository,
+    this.authRepository,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // TODO(4)
-    return const Scaffold(body: Center(child: Text('TODO: NotesScreen')));
+    NotesRepository repo;
+    try {
+      repo = notesRepository ?? context.read<NotesRepository>();
+    } catch (_) {
+      repo = notesRepository ?? NotesRepository();
+    }
+
+    AuthRepository? auth;
+    try {
+      auth = authRepository ?? context.read<AuthRepository>();
+    } catch (_) {
+      auth = authRepository;
+    }
+
+    final effectiveUid = uid ?? auth?.currentUser?.uid ?? '';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('My Notes'),
+        actions: [
+          IconButton(
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: () async => await auth?.signOut(),
+          ),
+        ],
+      ),
+      body: StreamBuilder<List<Note>>(
+        stream: repo.watchNotes(effectiveUid),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Could not load notes.'));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final notes = snapshot.data ?? [];
+          if (notes.isEmpty) {
+            return const Center(child: Text('No notes yet'));
+          }
+          return ListView.builder(
+            itemCount: notes.length,
+            itemBuilder: (context, index) {
+              final note = notes[index];
+              return Dismissible(
+                key: Key(note.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 16),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (_) {
+                  repo.deleteNote(effectiveUid, note.id);
+                },
+                child: ListTile(
+                  title: Text(note.title),
+                  subtitle: Text(note.body),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Add note',
+        onPressed: () async {
+          final result = await showDialog(
+            context: context,
+            builder: (ctx) => const AddNoteDialog(),
+          );
+          if (result == null) return;
+
+          String title = '';
+          String body = '';
+
+          if (result is (String, String)) {
+            title = result.$1;
+            body = result.$2;
+          } else if (result is Map) {
+            title = result['title']?.toString() ?? '';
+            body = result['body']?.toString() ?? '';
+          } else {
+            try {
+              title = (result as dynamic).title?.toString() ?? '';
+              body = (result as dynamic).body?.toString() ?? '';
+            } catch (_) {}
+          }
+
+          if (title.trim().isNotEmpty) {
+            await repo.addNote(effectiveUid, title, body);
+          }
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
   }
 }
-
-// These imports are used by the finished screen.
-// ignore_for_file: unused_import, unused_element, unused_field

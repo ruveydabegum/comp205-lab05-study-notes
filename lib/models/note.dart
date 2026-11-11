@@ -6,7 +6,7 @@ class Note {
   final String body;
   final DateTime? createdAt;
 
-  Note({
+  const Note({
     required this.id,
     required this.title,
     required this.body,

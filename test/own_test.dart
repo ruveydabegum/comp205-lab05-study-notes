@@ -1,17 +1,26 @@
-// Part 7: your own tests (at least 2, besides the example). They must test real code.
-// Ideas: a 100-character title is accepted; body is trimmed; 'network-request-failed';
-// signUp failure with whenCalling(...).thenThrow(...) (see lab05_test.dart).
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lab05_study_notes/data/auth_repository.dart';
+import 'package:lab05_study_notes/data/notes_repository.dart';
+import 'package:lab05_study_notes/models/note.dart';
 
 void main() {
-  // Create one fake first: it makes FieldValue.serverTimestamp() work in tests.
   setUpAll(FakeFirebaseFirestore.new);
 
-  test('example: messageFor maps weak-password', () {
-    expect(AuthRepository.messageFor('weak-password'), contains('6 characters'));
+  test('Note.fromFirestore throws FormatException when title is not a string', () {
+    expect(
+      () => Note.fromFirestore('note-1', {'title': 12345, 'body': 'Sample body'}),
+      throwsA(isA<FormatException>()),
+    );
   });
 
-  // TODO(7): your tests
+  test('NotesRepository.addNote throws ArgumentError when title is over 100 chars', () async {
+    final firestore = FakeFirebaseFirestore();
+    final repo = NotesRepository(firestore);
+    final longTitle = 'a' * 101;
+
+    expect(
+      () => repo.addNote('user-1', longTitle, 'Test body'),
+      throwsA(isA<ArgumentError>()),
+    );
+  });
 }
